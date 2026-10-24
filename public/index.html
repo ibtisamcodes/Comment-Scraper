@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CommentScope — Social Comment Scraper</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #f5f6fa;
+    --surface: #ffffff;
+    --surface-2: #f0f2f8;
+    --border: #e3e6ef;
+    --text: #151826;
+    --muted: #6b7185;
+    --accent: #5b5bf0;
+    --accent-2: #8a5cf6;
+    --accent-soft: #ececff;
+    --danger: #e5484d;
+    --danger-soft: #fdecec;
+    --ok: #12a363;
+    --shadow: 0 1px 2px rgba(20,24,50,.05), 0 8px 24px rgba(20,24,50,.06);
+    --radius: 16px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1020;
+      --surface: #171a2e;
+      --surface-2: #1e2238;
+      --border: #2a2f4a;
+      --text: #eef0fb;
+      --muted: #9aa0bd;
+      --accent: #7c7cff;
+      --accent-2: #a37bff;
+      --accent-soft: #25264d;
+      --danger-soft: #3a1c22;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Plus Jakarta Sans", system-ui, -apple-system, Segoe UI, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  .hero-glow {
+    position: fixed; inset: 0 0 auto 0; height: 320px; z-index: 0; pointer-events: none;
+    background: radial-gradient(60% 100% at 50% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%);
+  }
+  .wrap { position: relative; z-index: 1; max-width: 1040px; margin: 0 auto; padding: 28px 20px 80px; }
+
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 36px; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 20px; letter-spacing: -.02em; }
+  .logo-mark {
+    width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; color: #fff;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+  .tag { font-size: 12px; color: var(--muted); font-weight: 600; }
+
+  h1 { font-size: clamp(28px, 5vw, 42px); line-height: 1.1; letter-spacing: -.03em; margin: 0 0 10px; font-weight: 800; }
+  h1 span { background: linear-gradient(135deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .sub { color: var(--muted); font-size: 16px; margin: 0 0 28px; max-width: 620px; }
+
+  /* platforms */
+  .platforms { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 28px; }
+  .platform {
+    position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px;
+    padding: 16px 8px 14px; border-radius: 14px; background: var(--surface); border: 1.5px solid var(--border);
+    font: inherit; color: var(--text); font-weight: 600; font-size: 14px; cursor: pointer; transition: .15s;
+  }
+  .platform .ico { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: #fff; }
+  .platform.active { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+  .platform.disabled { cursor: not-allowed; opacity: .6; }
+  .platform.disabled .ico { filter: grayscale(.85); }
+  .badge {
+    font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 99px;
+    background: var(--surface-2); color: var(--muted); text-transform: uppercase; letter-spacing: .04em;
+  }
+  .badge.live { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+
+  /* cards */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); margin-bottom: 20px; }
+  .card h2 { margin: 0 0 4px; font-size: 18px; letter-spacing: -.01em; }
+  .card .hint { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
+  .step-num {
+    display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%;
+    background: var(--accent); color: #fff; font-size: 13px; font-weight: 700; margin-right: 8px; vertical-align: 1px;
+  }
+
+  .fields { display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end; }
+  label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  input[type=text], input[type=number], select {
+    width: 100%; padding: 12px 14px; border-radius: 12px; border: 1.5px solid var(--border);
+    background: var(--surface-2); color: var(--text); font: inherit; font-size: 15px; outline: none; transition: .15s;
+  }
+  input:focus, select:focus { border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 4px var(--accent-soft); }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 12px 20px; border-radius: 12px; border: 0; font: inherit; font-weight: 700; font-size: 15px; cursor: pointer;
+    color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent-2)); transition: .15s;
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 35%, transparent);
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn:disabled { opacity: .6; cursor: wait; transform: none; }
+  .btn.ghost { background: var(--surface-2); color: var(--text); box-shadow: none; border: 1px solid var(--border); }
+  .btn.small { padding: 9px 14px; font-size: 13.5px; border-radius: 10px; }
+
+  .error { display: none; margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: var(--danger-soft); color: var(--danger); font-size: 14px; font-weight: 500; }
+  .error.show { display: block; }
+
+  /* video list */
+  .channel-line { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; font-weight: 600; }
+  .channel-line img { width: 32px; height: 32px; border-radius: 50%; }
+  .videos { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+  .video {
+    text-align: left; font: inherit; color: inherit; padding: 0; overflow: hidden; cursor: pointer;
+    border-radius: 14px; border: 1.5px solid var(--border); background: var(--surface-2); transition: .15s;
+  }
+  .video:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .video.selected { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+  .video img { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; }
+  .video .meta { padding: 10px 12px 12px; }
+  .video .t { font-weight: 600; font-size: 14px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .video .s { color: var(--muted); font-size: 12.5px; margin-top: 6px; }
+
+  .opts { display: grid; grid-template-columns: repeat(3, 1fr) auto; gap: 12px; align-items: end; }
+  .check { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; margin-bottom: 12px; }
+  .check input { width: 18px; height: 18px; accent-color: var(--accent); }
+
+  /* results */
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .toolbar .left { display: flex; gap: 10px; align-items: center; flex: 1; min-width: 220px; }
+  .toolbar input { max-width: 320px; }
+  .pill { font-size: 13px; font-weight: 700; padding: 5px 12px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+  .table-wrap { max-height: 520px; overflow: auto; border: 1px solid var(--border); border-radius: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { position: sticky; top: 0; background: var(--surface-2); text-align: left; padding: 10px 12px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  td { padding: 12px; border-top: 1px solid var(--border); vertical-align: top; }
+  td.txt { min-width: 320px; white-space: pre-wrap; word-break: break-word; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .reply-tag { font-size: 11px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 1px 7px; border-radius: 6px; margin-left: 6px; }
+
+  .spinner { width: 16px; height: 16px; border: 2.5px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .hidden { display: none !important; }
+  footer { text-align: center; color: var(--muted); font-size: 12.5px; margin-top: 30px; }
+
+  @media (max-width: 760px) {
+    .platforms { grid-template-columns: repeat(3, 1fr); }
+    .fields, .opts { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="hero-glow"></div>
+<div class="wrap">
+
+  <header>
+    <div class="logo">
+      <div class="logo-mark">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1-4.5A8 8 0 1 1 21 12z"/><path d="M9 11h6M9 14.5h3.5"/></svg>
+      </div>
+      CommentScope
+    </div>
+    <span class="tag">Multi-platform comment scraper</span>
+  </header>
+
+  <h1>Collect comments from <span>any platform</span>.</h1>
+  <p class="sub">Pick a platform, find a video, and export its comments in seconds. YouTube is live now &mdash; the rest are on the way.</p>
+
+  <!-- Platform picker -->
+  <div class="platforms" id="platforms">
+    <button class="platform active" data-platform="youtube">
+      <span class="ico" style="background:#ff0033"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M10 8.5v7l6-3.5-6-3.5z"/><rect x="2" y="5" width="20" height="14" rx="4" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>
+      YouTube <span class="badge live">Live</span>
+    </button>
+    <button class="platform disabled" data-platform="instagram" disabled title="Coming soon">
+      <span class="ico" style="background:linear-gradient(45deg,#f9a03f,#e1306c,#833ab4)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1" fill="currentColor"/></svg></span>
+      Instagram <span class="badge">Coming soon</span>
+    </button>
+    <button class="platform disabled" data-platform="facebook" disabled title="Coming soon">
+      <span class="ico" style="background:#1877f2"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M14 8h3V4.5h-3A4.5 4.5 0 0 0 9.5 9v2H7v3.5h2.5V21H13v-6.5h3l.5-3.5H13V9a1 1 0 0 1 1-1z"/></svg></span>
+      Facebook <span class="badge">Coming soon</span>
+    </button>
+    <button class="platform disabled" data-platform="tiktok" disabled title="Coming soon">
+      <span class="ico" style="background:#111"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 3a5 5 0 0 0 4 4.4v3.1a8 8 0 0 1-4-1.2v6.2a5.5 5.5 0 1 1-5.5-5.5c.3 0 .7 0 1 .1v3.2a2.4 2.4 0 1 0 1.4 2.2V3h3.1z"/></svg></span>
+      TikTok <span class="badge">Coming soon</span>
+    </button>
+    <button class="platform disabled" data-platform="linkedin" disabled title="Coming soon">
+      <span class="ico" style="background:#0a66c2"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M5 9h3.4v10H5V9zm1.7-4.9a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM10.6 9h3.2v1.4h.1c.5-.9 1.6-1.7 3.2-1.7 3.4 0 4 2.2 4 5.1V19h-3.4v-4.6c0-1.1 0-2.5-1.5-2.5s-1.8 1.2-1.8 2.4V19h-3.4V9z"/></svg></span>
+      LinkedIn <span class="badge">Coming soon</span>
+    </button>
+  </div>
+
+  <!-- Step 1 -->
+  <section class="card">
+    <h2><span class="step-num">1</span>Find the video</h2>
+    <p class="hint">Enter a channel name (or an @handle) and part of the video title.</p>
+    <form id="searchForm" class="fields">
+      <div>
+        <label for="channel">Channel name</label>
+        <input type="text" id="channel" placeholder="e.g. MrBeast or @MKBHD" autocomplete="off" required />
+      </div>
+      <div>
+        <label for="video">Video name</label>
+        <input type="text" id="video" placeholder="e.g. iPhone review" autocomplete="off" required />
+      </div>
+      <button class="btn" id="searchBtn" type="submit">Search videos</button>
+    </form>
+    <div class="error" id="searchError"></div>
+  </section>
+
+  <!-- Step 2 -->
+  <section class="card hidden" id="videosCard">
+    <h2><span class="step-num">2</span>Choose a video</h2>
+    <p class="hint">Click the video you want to scrape comments from.</p>
+    <div class="channel-line" id="channelLine"></div>
+    <div class="videos" id="videos"></div>
+  </section>
+
+  <!-- Step 3 -->
+  <section class="card hidden" id="optionsCard">
+    <h2><span class="step-num">3</span>Scrape comments</h2>
+    <p class="hint" id="selectedTitle"></p>
+    <div class="opts">
+      <div>
+        <label for="limit">Max comments</label>
+        <input type="number" id="limit" value="200" min="1" max="5000" />
+      </div>
+      <div>
+        <label for="order">Sort by</label>
+        <select id="order">
+          <option value="relevance">Top comments</option>
+          <option value="time">Newest first</option>
+        </select>
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <label class="check" style="margin:0;height:46px"><input type="checkbox" id="replies" /> Include replies</label>
+      </div>
+      <button class="btn" id="scrapeBtn">Scrape comments</button>
+    </div>
+    <div class="error" id="scrapeError"></div>
+  </section>
+
+  <!-- Results -->
+  <section class="card hidden" id="resultsCard">
+    <h2>Results</h2>
+    <p class="hint">Search, copy or export what you collected.</p>
+    <div class="toolbar">
+      <div class="left">
+        <input type="text" id="filter" placeholder="Filter comments…" />
+        <span class="pill" id="countPill">0 comments</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn ghost small" id="copyBtn">Copy text</button>
+        <button class="btn ghost small" id="csvBtn">Download CSV</button>
+        <button class="btn ghost small" id="jsonBtn">Download JSON</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Author</th><th>Comment</th><th style="text-align:right">Likes</th><th>Date</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>Only scrape public data and respect each platform's terms of service.</footer>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let selectedVideo = null;
+let allComments = [];
+
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = (n) => Number(n).toLocaleString();
+const fmtDate = (d) => new Date(d).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+
+function showError(el, msg) { el.textContent = msg; el.classList.add("show"); }
+function clearError(el) { el.classList.remove("show"); }
+function setLoading(btn, loading, label) {
+  btn.disabled = loading;
+  btn.innerHTML = loading ? '<span class="spinner"></span> Working…' : label;
+}
+
+async function api(path, params) {
+  const res = await fetch(path + "?" + new URLSearchParams(params));
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Something went wrong.");
+  return data;
+}
+
+// ----- Step 1: search -----
+$("searchForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  clearError($("searchError"));
+  $("videosCard").classList.add("hidden");
+  $("optionsCard").classList.add("hidden");
+  $("resultsCard").classList.add("hidden");
+  selectedVideo = null;
+  setLoading($("searchBtn"), true);
+  try {
+    const data = await api("/api/youtube/videos", { channel: $("channel").value, video: $("video").value });
+    renderVideos(data);
+  } catch (err) {
+    showError($("searchError"), err.message);
+  } finally {
+    setLoading($("searchBtn"), false, "Search videos");
+  }
+});
+
+function renderVideos({ channel, videos }) {
+  $("channelLine").innerHTML =
+    (channel.thumb ? `<img src="${esc(channel.thumb)}" alt="" />` : "") + `<span>${esc(channel.title)}</span>`;
+  $("videos").innerHTML = videos.map((v) => `
+    <button class="video" data-id="${esc(v.id)}">
+      <img src="${esc(v.thumbnail)}" alt="" loading="lazy" />
+      <div class="meta">
+        <div class="t">${esc(v.title)}</div>
+        <div class="s">${fmt(v.views)} views · ${v.commentCount === null ? "comments off" : fmt(v.commentCount) + " comments"} · ${fmtDate(v.publishedAt)}</div>
+      </div>
+    </button>`).join("");
+
+  $("videos").querySelectorAll(".video").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      $("videos").querySelectorAll(".video").forEach((b) => b.classList.remove("selected"));
+      btn.classList.add("selected");
+      selectedVideo = videos.find((v) => v.id === btn.dataset.id);
+      $("selectedTitle").textContent = "Selected: " + selectedVideo.title;
+      $("optionsCard").classList.remove("hidden");
+      $("optionsCard").scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  });
+  $("videosCard").classList.remove("hidden");
+  $("videosCard").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// ----- Step 3: scrape -----
+$("scrapeBtn").addEventListener("click", async () => {
+  if (!selectedVideo) return;
+  clearError($("scrapeError"));
+  setLoading($("scrapeBtn"), true);
+  try {
+    const data = await api("/api/youtube/comments", {
+      videoId: selectedVideo.id,
+      limit: $("limit").value,
+      order: $("order").value,
+      replies: $("replies").checked,
+    });
+    allComments = data.comments;
+    $("filter").value = "";
+    renderRows();
+    $("resultsCard").classList.remove("hidden");
+    $("resultsCard").scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (err) {
+    showError($("scrapeError"), err.message);
+  } finally {
+    setLoading($("scrapeBtn"), false, "Scrape comments");
+  }
+});
+
+function visibleComments() {
+  const q = $("filter").value.trim().toLowerCase();
+  return q ? allComments.filter((c) => (c.text + " " + c.author).toLowerCase().includes(q)) : allComments;
+}
+
+function renderRows() {
+  const list = visibleComments();
+  $("countPill").textContent = `${fmt(list.length)} comment${list.length === 1 ? "" : "s"}`;
+  $("rows").innerHTML = list.map((c) => `
+    <tr>
+      <td>${esc(c.author)}${c.type === "reply" ? '<span class="reply-tag">reply</span>' : ""}</td>
+      <td class="txt">${esc(c.text)}</td>
+      <td class="num">${fmt(c.likes)}</td>
+      <td>${fmtDate(c.publishedAt)}</td>
+    </tr>`).join("");
+}
+$("filter").addEventListener("input", renderRows);
+
+// ----- Export -----
+function download(name, content, type) {
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  const a = Object.assign(document.createElement("a"), { href: url, download: name });
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+const slug = () => (selectedVideo?.title || "comments").toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
+
+$("csvBtn").addEventListener("click", () => {
+  const cell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const header = ["type", "author", "comment", "likes", "published_at", "reply_count"];
+  const rows = visibleComments().map((c) => [c.type, c.author, c.text, c.likes, c.publishedAt, c.replyCount].map(cell).join(","));
+  download(slug() + ".csv", "﻿" + [header.join(","), ...rows].join("\n"), "text/csv;charset=utf-8");
+});
+$("jsonBtn").addEventListener("click", () => {
+  download(slug() + ".json", JSON.stringify(visibleComments(), null, 2), "application/json");
+});
+$("copyBtn").addEventListener("click", async (e) => {
+  await navigator.clipboard.writeText(visibleComments().map((c) => `${c.author}: ${c.text}`).join("\n\n"));
+  const b = e.currentTarget; const old = b.textContent; b.textContent = "Copied!";
+  setTimeout(() => (b.textContent = old), 1400);
+});
+</script>
+</body>
+</html>
